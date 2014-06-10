@@ -1,20 +1,182 @@
-# Reproducible Research: Peer Assessment 1
+# Reproducible Research: Peer Assessment 1 by *Partha Majumdar*
+Date Started: 10Jun2014 2:24 PM
+
+Date Ended:
+
+Machine used: Apple iMac
 
 
 ## Loading and preprocessing the data
+As the file is a comma separated file, we use the function "read.csv" to read the data. The data is loaded in the variable "**activityData**". It is assumed that the file **activity.csv** as provided in the assignment is present in the current working directory.
+```{r}
+activityData <- read.csv("activity.csv", sep=",", colClasses=c("numeric", "Date", "numeric"), na.string="NA")
+totalNumberOfRowsInData <- nrow(activityData)
+```
+
+The data contains **`r ncol(activityData)`** columns - **`r colnames(activityData)`**. We do an initial inspection of the data using the head() and tail() function.
+```{r}
+head(activityData)
+tail(activityData)
+```
+
+On inspection (by opening the file using TextEdit) and from the above result, I notice that some data contains "NA". So, first activity we conduct is to remove all the rows of data containing any missing or invalid values. We store the cleaned data in the variable "**goodActivityData**".
+```{r}
+goodActivityData <- subset(activityData, !is.na(steps) & !is.na(date) & !is.na(interval))
+numberOfCleanRowsOfData <- nrow(goodActivityData)
+```
+
+The number of rows in the original dataset = **`r totalNumberOfRowsInData`**.
+
+The number of rows in the dataset after cleaning = **`r numberOfCleanRowsOfData`**.
+
+The number of rows in the dataset with invalid data = **`r (totalNumberOfRowsInData - numberOfCleanRowsOfData)`**.
 
 
 
 ## What is mean total number of steps taken per day?
+To find the *"mean total number of steps per day"*, we first find the *"total number of steps per day"*. Let us denote *"mean total number of steps per day"* by **"mu"** and let us denote *"total number of steps per day"* by **"t<date>"**.
+
+To determine **t<date>**, we use the *aggregate()* function.
+```{r}
+aggregatedActivityData <- aggregate(steps ~ date, goodActivityData, sum)
+```
+
+The aggregated data looks as follows.
+```{r}
+aggregatedActivityData
+```
+
+Now, we find the value of **mu** using the function *mean()*. The syntax is as follows - *mean(aggregatedActivityData$steps)*.
+
+The value of **mu** is **`r mean(aggregatedActivityData$steps)`**.
+
+The value of the **median** is **`r median(aggregatedActivityData$steps)`**. The median is determined using the *median()* function using the following syntax - *median(aggregatedActivityData$steps)*.
+
+The histogram for the above data is shown below.
+```{r}
+hist(aggregatedActivityData$steps, col="Red", xlab="Steps per Day")
+```
+
+Mean (mu) = `r mean(aggregatedActivityData$steps)`
+
+Median = `r median(aggregatedActivityData$steps)`
+
+Standard Deviation = `r sd(aggregatedActivityData$steps)`
 
 
 
 ## What is the average daily activity pattern?
+As in the last step, to determine *"average daily activity pattern"*, we first find the *"total daily activity pattern"*. To determine the *"total daily activity pattern"*, we use the *aggregate()* function to average the **steps** for **each interval**.
+```{r}
+activityPattern <- aggregate(steps ~ interval, goodActivityData, mean)
+```
+
+This data has **`r nrow(activityPattern)`** rows.
+
+The Time-Series plot for the above data is provided below.
+```{r}
+library("ggplot2")
+qplot(interval, steps, data=activityPattern, geom=c("line"), xlab="5 minute Intervals", ylab="Number of Steps")
+```
+
+Determine the row which contains the maximum number of steps for an interval.
+```{r}
+maximumStepsInAnInterval <- max(activityPattern$steps)
+rowMax <- which(activityPattern$steps == maximumStepsInAnInterval)
+intervalWithMaximumSteps <- activityPattern[rowMax,]$interval
+```
+The 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps = **`r intervalWithMaximumSteps`**.
+
+The number of steps in the interval **`r intervalWithMaximumSteps`** = **`r maximumStepsInAnInterval`**.
 
 
 
 ## Imputing missing values
+The strategy adopted for filling the **missing values** is to replace these values with the **mean of the values of the date and interval**. This way the mean of the resultant dataset will remain the same.
+
+We have a hypothesis that there are no missing values in the columns "date" and "interval". We first check this hypothesis.
+```{r}
+numberOfMissingDates <- nrow(subset(activityData, is.na(date)))
+numberOfMissinIntervals <- nrow(subset(activityData, is.na(interval)))
+```
+
+Number of rows in Data Set with Missing Dates = `r numberOfMissingDates`.
+
+Number of rows in Data Set with Missing Intervals = `r numberOfMissinIntervals`.
+
+So, all the missing values are in the column "steps".
+
+The number of rows with missing values = **`r (totalNumberOfRowsInData - numberOfCleanRowsOfData)`**.
+
+The program for fixing the missing values for the column "steps" is as follows.
+
+0. Determine the average value of steps for each Interval.
+1. Determine all the rows with missing values of "steps".
+2. Determine the unique values of Date and Interval for these rows.
+3. Replace the missing value of steps with the average value of steps for this interval rounded off to 0 places of decimal.
+```{r}
+# Determine the average value of "Steps" for each "Interval".
+aggregatedDataWithMean <- aggregate(steps ~ interval, goodActivityData, mean)
+
+# Determine all the rows with missing values of "steps".
+missingData <- subset(activityData, is.na(steps))
+
+# Determine the unique values for "Date" in the missing data. Loop through these dates.
+uniqueMissingDates <- unique(missingData$date)
+for(missingDataDate in uniqueMissingDates) {
+  # Determine the Missing Intervals for this Date
+  uniqueMissingIntervals <- subset(missingData, date == missingDataDate)$interval
+  for(missingDataInterval in uniqueMissingIntervals) {
+    activityData[c(activityData$date==missingDataDate & activityData$interval==missingDataInterval),]$steps <- round(aggregatedDataWithMean[c(aggregatedDataWithMean$interval==missingDataInterval),]$steps, 0)
+  }
+}
+```
+
+Find the *"mean total number of steps per day"*. We first find the *"total number of steps per day"*. Let us denote *"mean total number of steps per day"* by **"mu1"** and let us denote *"total number of steps per day"* by **"t1<date>"**.
+
+To determine **t<date>**, we use the *aggregate()* function.
+```{r}
+aggregatedModifiedActivityData <- aggregate(steps ~ date, activityData, sum)
+```
+
+The histogram for the above data is shown below.
+```{r}
+hist(aggregatedModifiedActivityData$steps, col="Blue", xlab="Steps per Day")
+```
+
+Mean (mu1) = `r mean(aggregatedModifiedActivityData$steps)`
+
+Median = `r median(aggregatedModifiedActivityData$steps)`
+
+Standard Deviation = `r sd(aggregatedModifiedActivityData$steps)`
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+First we need classifying the rows in activityData as belonging to "WeekDay" and "WeekEnd". For doing so, we first add a column named "dayOfWeek" to activityData. Next, we populate this column with "weekday" or "weekend" depending on the day of the week the date in the row belongs to. "Saturday" and "Sunday" are considered as days in weekends.
+
+```{r}
+activityData <- cbind(activityData, dayOfWeek=c("weekday", "weekend"))
+activityData[c(weekdays(activityData$date) %in% c("Saturday", "Sunday")),]$dayOfWeek <- "weekend"
+activityData[c(!(weekdays(activityData$date) %in% c("Saturday", "Sunday"))),]$dayOfWeek <- "weekday"
+```
+
+So, activityData looks like as given below.
+```{r}
+head(activityData)
+```
+
+The number of rows of data for "weekdays" = `r nrow(subset(activityData, dayOfWeek == "weekday"))`.
+The number of rows of data for "weekends" = `r nrow(subset(activityData, dayOfWeek == "weekend"))`.
+
+Now, we aggregate this data for finding the mean value of "steps"" grouping by "interval" and "dayOfWeek".
+```{r}
+aggregatedActivityDataByIntervalWeekDay <- aggregate(steps ~ interval + dayOfWeek, activityData, mean)
+```
+
+We will use gglplot2 system for producing the graph for the analysis.
+```{r}
+library("ggplot2")
+qplot(interval, steps, data = aggregatedActivityDataByIntervalWeekDay, facets = . ~ dayOfWeek, geom = c("line"))
+```
